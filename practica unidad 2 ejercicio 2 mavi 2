@@ -1,0 +1,103 @@
+#include <iostream>
+#include <Box2D/Box2D.h>
+#include <SDL2/SDL.h>
+
+const float32 WORLD_WIDTH = 100.0f;
+const float32 WORLD_HEIGHT = 100.0f;
+const float32 BALL_RADIUS = 5.0f;
+
+int main(int argc, char* argv[]) {
+    // Inicialización de SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+        return 1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow("Pelota Rebotando", 100, 100, 800, 600, SDL_WINDOW_SHOWN);
+    if (window == nullptr) {
+        std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (renderer == nullptr) {
+        SDL_DestroyWindow(window);
+        std::cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    // Configuración del mundo de Box2D
+    b2Vec2 gravity(0.0f, 0.0f);
+    b2World world(gravity);
+
+    // Creación de las barreras
+    b2BodyDef barrierBodyDef;
+    barrierBodyDef.position.Set(0.0f, 0.0f);
+    b2Body* barrierBody = world.CreateBody(&barrierBodyDef);
+
+    b2EdgeShape barrierBox;
+    barrierBox.Set(b2Vec2(0.0f, 0.0f), b2Vec2(WORLD_WIDTH, 0.0f));
+    barrierBody->CreateFixture(&barrierBox, 0.0f);
+
+    barrierBox.Set(b2Vec2(0.0f, 0.0f), b2Vec2(0.0f, WORLD_HEIGHT));
+    barrierBody->CreateFixture(&barrierBox, 0.0f);
+
+    barrierBox.Set(b2Vec2(0.0f, WORLD_HEIGHT), b2Vec2(WORLD_WIDTH, WORLD_HEIGHT));
+    barrierBody->CreateFixture(&barrierBox, 0.0f);
+
+    barrierBox.Set(b2Vec2(WORLD_WIDTH, 0.0f), b2Vec2(WORLD_WIDTH, WORLD_HEIGHT));
+    barrierBody->CreateFixture(&barrierBox, 0.0f);
+
+    // Creación de la pelota
+    b2BodyDef ballBodyDef;
+    ballBodyDef.type = b2_dynamicBody;
+    ballBodyDef.position.Set(WORLD_WIDTH / 2.0f, WORLD_HEIGHT / 2.0f);
+    b2Body* ballBody = world.CreateBody(&ballBodyDef);
+
+    b2CircleShape ballShape;
+    ballShape.m_radius = BALL_RADIUS;
+
+    b2FixtureDef ballFixtureDef;
+    ballFixtureDef.shape = &ballShape;
+    ballFixtureDef.density = 1.0f;
+    ballFixtureDef.friction = 0.3f;
+    ballFixtureDef.restitution = 1.0f;  // Rebote perfecto
+    ballBody->CreateFixture(&ballFixtureDef);
+
+    // Bucle principal
+    bool quit = false;
+    SDL_Event e;
+
+    while (!quit) {
+        while (SDL_PollEvent(&e) != 0) {
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+
+        world.Step(1.0f / 60.0f, 6, 2);
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderClear(renderer);
+
+        // Renderizar la pelota
+        b2Vec2 position = ballBody->GetPosition();
+        SDL_Rect ballRect = {
+            static_cast<int>(position.x * 800.0f / WORLD_WIDTH - BALL_RADIUS * 800.0f / WORLD_WIDTH),
+            600 - static_cast<int>(position.y * 600.0f / WORLD_HEIGHT + BALL_RADIUS * 600.0f / WORLD_HEIGHT),
+            static_cast<int>(BALL_RADIUS * 2 * 800.0f / WORLD_WIDTH),
+            static_cast<int>(BALL_RADIUS * 2 * 600.0f / WORLD_HEIGHT)
+        };
+        SDL_RenderFillRect(renderer, &ballRect);
+
+        SDL_RenderPresent(renderer);
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
+}
